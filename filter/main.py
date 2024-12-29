@@ -8,12 +8,12 @@ img_circuit = np.array(Image.open('./img/circuit.png'))
 
 ''' Low-pass filtering '''
 
-# 1. Mean filter
-'''
+# 1. Medium Filtering
+
 # Define filters
 filters = {
-    '3x3 Mean Filter': 1/9 * np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]),
-    '5x5 Mean Filter': 1/25 * np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1], 
+    '3x3 Medium Filter': 1/9 * np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]),
+    '5x5 Medium Filter': 1/25 * np.array([[1, 1, 1, 1, 1], [1, 1, 1, 1, 1], [1, 1, 1, 1, 1], 
                                         [1, 1, 1, 1, 1], [1, 1, 1, 1, 1]]),
     '3x3 Less Active Filter': 1/10 * np.array([[1, 1, 1], [1, 2, 1], [1, 1, 1]]),
     '5x5 Privileged Filter': 1/42 * np.array([[1, 1, 1, 1, 1], [1, 1, 4, 1, 1], [1, 4, 6, 4, 1], 
@@ -38,11 +38,11 @@ for i, (image, title) in enumerate(zip(images, titles)):
 
 plt.tight_layout()
 plt.show()
-'''
+
 
 # 2. Gaussian filter
 
-'''
+
 kernel_a = gaussian_kernel(sigma=1,size=3)
 kernal_b = gaussian_kernel(sigma=1.25,size=5)
 
@@ -68,12 +68,12 @@ axs[1][2].imshow(result_b,cmap="gray")
 axs[1][2].set(xlabel='Resultat')
 
 plt.show()
-'''
+
 
 ''' High-pass filter '''
 
 # 1.Detail Enhancement
-'''
+
 F1_kernel = np.array([[0, -1, 0], 
                       [-1, 4, -1], 
                       [0, -1, 0]]) # High-pass filter for detail enhancement
@@ -92,10 +92,10 @@ axs[2].imshow(result,cmap="gray")
 axs[2].set(xlabel='Resultat')
 
 plt.show()
-'''
+
 
 # 2. Détection de structure
-'''
+
 # Point kernel
 
 kernel_point = np.array([[-1, -1, -1],
@@ -175,11 +175,10 @@ axes[3, 2].axis('off')
 
 plt.tight_layout()
 plt.show()
-'''
+
 
 # 3. Détection de contours par filtres de Sobel
 
-'''
 # 
 kernel_grad_x = np.array([[-1,0,1],[-2,0,2],[-1,0,1]])
 kernel_grad_y = np.array([[1,2,1],[0,0,0],[-1,-2,-1]])
@@ -214,10 +213,10 @@ axs[3].axis("off")
 
 plt.tight_layout()
 plt.show()
-'''
+
 
 '''  Filtrage par algorithme local '''
-'''
+
 # 1. Median Filter
 kernel_sizes = [3, 5, 7, 9]
 median_imgs = [median_filter(input_img=img_lena_bruit, kernel_size=size) for size in kernel_sizes]
@@ -237,7 +236,7 @@ for i, size in enumerate(kernel_sizes):
 
 plt.tight_layout()
 plt.show()
-'''
+
 # 2. Conservative Filter 
 kernel_sizes = [3, 5, 7, 9, 11]
 conservative_imgs = [conservative_filter(input_img=img_lena_bruit, kernel_size=size) for size in kernel_sizes]
