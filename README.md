@@ -2,6 +2,9 @@
 
 This project focuses on rebuilding basic image processing methods. Currently, it includes methods for image processing using histograms and filters.
 
+![Example Image](./filter/result/gradient_Sobel_magnitude_circuit.png)
+
+
 ## Histogram-based Processing
 1. Extract histogram information from an image
 2. Binarize an image using a constant threshold
