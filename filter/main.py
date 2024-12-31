@@ -39,9 +39,7 @@ for i, (image, title) in enumerate(zip(images, titles)):
 plt.tight_layout()
 plt.show()
 
-
 # 2. Gaussian filter
-
 
 kernel_a = gaussian_kernel(sigma=1,size=3)
 kernal_b = gaussian_kernel(sigma=1.25,size=5)
