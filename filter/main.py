@@ -67,7 +67,6 @@ axs[1][2].set(xlabel='Resultat')
 
 plt.show()
 
-
 ''' High-pass filter '''
 
 # 1.Detail Enhancement
