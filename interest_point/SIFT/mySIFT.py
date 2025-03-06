@@ -1,6 +1,7 @@
 import numpy as np
 import cv2
 import matplotlib.pyplot as plt
+from test_file import *
 
 # Define directory path
 dir_path = './img/'
@@ -94,6 +95,104 @@ def generateDoGImages(gaussian_images):
         DoG_images.append(DoG_images_in_octave)
     return np.array(DoG_images, dtype=object)
 
+# Scale Space Extrema
+
+
+def isPixelAnExtramum(first_subImg, second_subImg, third_subImg, threshold):
+    '''
+    Sub Image: 3x3
+    '''
+    centre_pixel = second_subImg[1, 1]
+
+    if abs(centre_pixel) <= threshold:
+        return False
+
+    neighbors = np.concatenate([
+        first_subImg.flatten(),
+        third_subImg.flatten(),
+        second_subImg[0, :],
+        second_subImg[2, :],
+        [second_subImg[1, 0], second_subImg[1, 2]]
+    ])
+
+    if centre_pixel > 0:
+        return all(centre_pixel >= neighbors)
+    elif centre_pixel < 0:
+        return all(centre_pixel <= neighbors)
+
+    return False
+
+def computeGradientAtCenterPixel(pixel_array):
+    dx = 0.5 * (pixel_array[1,1,2] - pixel_array[1,1,0])    
+    dy = 0.5 * (pixel_array[1,2,1] - pixel_array[1,0,1])
+    ds = 0.5 * (pixel_array[2,1,1] - pixel_array[0,1,1])
+    return np.array([dx, dy, ds])
+
+def computeHessianAtCenterPixel(pixel_array):   
+    center_plixel = pixel_array[1,1,1]  
+    
+    dxx = pixel_array[1,1,2] - 2 * center_plixel + pixel_array[1,1,0]
+    dyy = pixel_array[1,2,1] - 2 * center_plixel + pixel_array[1,0,1]
+    dss = pixel_array[2,1,1] - 2 * center_plixel + pixel_array[0,1,1]
+
+    dxy = 0.25 * (pixel_array[1,2,2] - pixel_array[1,0,2] - pixel_array[1,2,0] + pixel_array[1,0,0])
+    dxs = 0.25 * (pixel_array[2,1,2] - pixel_array[0,1,2] - pixel_array[2,1,0] + pixel_array[0,1,0])
+    dys = 0.25 * (pixel_array[2,2,1] - pixel_array[0,2,1] - pixel_array[2,0,1] + pixel_array[0,0,1])
+
+    return np.array([[dxx, dxy, dxs],    
+                     [dxy, dyy, dys],
+                     [dxs, dys, dss]])
+
+def localizeExtremum(posX,posY, img_index, octave_index, nb_intervals, nb_DoG_imgs_in_octave, sigma, contrast_threshold, img_border_width,eigenValue_ratio, nb_attemps):
+    extremum_is_outside = False # Flag to check if the extremum is outside the image
+    img_shape = nb_DoG_imgs_in_octave[0].shape
+
+    for index in range(nb_attemps):
+        first_img, second_img, third_img = nb_DoG_imgs_in_octave[img_index - 1:img_index + 2]
+        # 
+        pixel_cube = np.stack(first_img[posX-1:posX+2,posY-1:posY+2], second_img[posX-1:posX+2,posY-1:posY+2], third_img[posX-1:posX+2,posY-1:posY+2]).astype('float32')/255.0
+        gradient = computeGradientAtCenterPixel(pixel_cube)
+        hessian = computeHessianAtCenterPixel(pixel_cube)
+        extremum_update = -np.linalg.lstsq(hessian, gradient, rcond=None)[0] # Solve for the extremum update
+
+        if np.abs(extremum_update[0]) < 0.5 and np.abs(extremum_update[1]) < 0.5 and np.abs(extremum_update[2]) < 0.5:
+            break
+        
+        # Update the position of the extremum
+        posY += int(np.round(extremum_update[0]))
+        posX += int(np.round(extremum_update[1]))
+        
+        img_index += int(np.round(extremum_update[2]))
+
+        if posX <img_border_width or posX >= img_shape[0] - img_border_width or posY < img_border_width or posY >= img_shape[1] - img_border_width or img_index < 1 or img_index > nb_intervals:
+            extremum_is_outside = True
+            break
+            
+        if extremum_is_outside:
+            return None
+
+        if index >= nb_attemps - 1:
+            return None
+        
+        valueAtUpdateExtremum = pixel_cube[1,1,1] + 0.5 * np.dot(gradient, extremum_update)
+
+        # check if the extremum is too low
+        if np.abs(valueAtUpdateExtremum) * nb_intervals >= contrast_threshold:
+            xy_hessian = hessian[:2, :2]
+            xy_hessian_trace = np.trace
+            xy_hessian_det = np.linalg.det(xy_hessian)
+
+            if xy_hessian_det > 0 and eigenValue_ratio * (xy_hessian_trace ** 2) < ((eigenValue_ratio + 1) ** 2) * xy_hessian_det:
+                keypoint = cv2.KeyPoint()
+                keypoint.pt = ((posY + extremum_update[0]) * (2 ** octave_index), (posX + extremum_update[1]) * (2 ** octave_index))
+                keypoint.octave = octave_index + img_index * (2 ** 8) + int(round((extremum_update[2] + 0.5) * 255)) * (2 ** 16)
+                keypoint.size = sigma * (2 ** ((img_index + extremum_update[2]) / np.float32(nb_intervals))) * (2 ** (octave_index + 1)) 
+                keypoint.response = np.abs(valueAtUpdateExtremum)
+                return  keypoint, img_index
+        return None              
+
+
+
 '''Function to test'''
 
 def testBaseImageGeneration(image, sigma, assumed_blur):
@@ -145,29 +244,28 @@ def showImagesMatplotlib(images, title="Octave Images"):
     plt.subplots_adjust(top=0.9)  # Adjust to make space for the main title
     plt.show()
 
+
 def showDoGImagesMatplotlib(DoG_images, title="DoG Images"):
-    """
-    Display DoG images using matplotlib in a grid format.
-    DoG_images: List of DoG images (each list of images corresponds to one octave).
-    title: Title for the plot.
-    """
     num_octaves = len(DoG_images)
-    
-    # Create a grid of subplots
-    fig, axes = plt.subplots(num_octaves, len(DoG_images[0]), figsize=(12, 12))
+    num_images_per_octave = len(DoG_images[0])
+
+    fig, axes = plt.subplots(num_octaves, num_images_per_octave, figsize=(15, num_octaves * 3))
     fig.suptitle(title, fontsize=16)
+
+    if num_octaves == 1:
+        axes = [axes]  
 
     for octave_idx, octave in enumerate(DoG_images):
         for img_idx, dog in enumerate(octave):
-            ax = axes[octave_idx, img_idx]
+            ax = axes[octave_idx][img_idx] if num_octaves > 1 else axes[img_idx]
             ax.imshow(dog, cmap='gray')
-            ax.axis('off')  # Turn off axis
+            ax.axis('off')
+            ax.set_title(f"Octave {octave_idx + 1} - DoG {img_idx + 1}")  
 
-            ax.set_title(f"Octave {octave_idx + 1} - DoG Image {img_idx + 1}")
-
-    plt.tight_layout()
-    plt.subplots_adjust(top=0.9)  # Adjust to make space for the main title
+    plt.tight_layout(pad=2)
+    plt.subplots_adjust(top=0.9, hspace=0.5)
     plt.show()
+
 
 # Main function
 def main():
@@ -177,34 +275,38 @@ def main():
     image_path = dir_path + 'stylo.jpeg'        
     stylo = openImage(image_path)  
     stylo_gray = convertImageToGray(stylo) 
-    showImage(stylo_gray, 'stylo')
+    #showImage(stylo_gray, 'stylo')
 
     # Load and display zoom image
     image_zoom_path = dir_path + 'stylo_zoom.jpeg'
     stylo_zoom = openImage(image_zoom_path)
     stylo_zoom_gray = convertImageToGray(stylo_zoom)
-    showImage(stylo_zoom_gray, 'stylo_zoom')
+    #showImage(stylo_zoom_gray, 'stylo_zoom')
 
     # Test Gaussian Kernels
     testGaussianKernels(1.6, 3)
 
     # Generate Gaussian Images and test
     gaussian_kernels = generateGaussianKernels(1.6, 3)  # Assuming you want to use sigma = 1.6 and 3 intervals
-    testGaussianImages(stylo_gray, 3, gaussian_kernels)
+    #testGaussianImages(stylo_gray, 3, gaussian_kernels)
 
     # Generate DoG Images
     gaussian_images = generateGaussianImages(stylo_gray, 3, gaussian_kernels)
-    dog_images = generateDoGImages(gaussian_images)
+    print(gaussian_images.size)
+    print(gaussian_images.shape)    
 
+    dog_images = generateDoGImages(gaussian_images)
+    print(dog_images.size)
+    print(dog_images.shape)
     # Show DoG Images using Matplotlib
-    showDoGImagesMatplotlib(dog_images)
+    #showDoGImagesMatplotlib(dog_images)
 
     # Additional Tests or Changes Here (example):
     # Change sigma value and test again
-    testBaseImageGeneration(stylo_gray, 2.0, 1.0)  # Test with new sigma and assumed_blur values
-    testGaussianKernels(2.0, 4)  # Test Gaussian Kernels with new values
+    #testBaseImageGeneration(stylo_gray, 2.0, 1.0)  # Test with new sigma and assumed_blur values
+    #testGaussianKernels(2.0, 4)  # Test Gaussian Kernels with new values
     
-    testDoGImages(generateGaussianImages(stylo_gray, 4, generateGaussianKernels(2.0, 4)))  # New test for DoG Images
+    #testDoGImages(generateGaussianImages(stylo_gray, 4, generateGaussianKernels(2.0, 4)))  # New test for DoG Images
 
 if __name__ == '__main__':
     main()
