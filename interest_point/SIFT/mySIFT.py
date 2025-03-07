@@ -96,8 +96,6 @@ def generateDoGImages(gaussian_images):
     return np.array(DoG_images, dtype=object)
 
 # Scale Space Extrema
-
-
 def isPixelAnExtramum(first_subImg, second_subImg, third_subImg, threshold):
     '''
     Sub Image: 3x3
@@ -191,6 +189,71 @@ def localizeExtremum(posX,posY, img_index, octave_index, nb_intervals, nb_DoG_im
                 return  keypoint, img_index
         return None              
 
+def findScaleSpaceExtrema(gauss_imgs, DoG_imgs, nb_intervals, sigma, img_border_width, constrast_theshold):
+    keypoints = []  
+    threshold = np.floor(0.5 * constrast_theshold / nb_intervals)  
+
+    for octave_index, DoG_imgs_in_octave in enumerate(DoG_imgs):
+        for img_index, (first_img, second_img, third_img) in enumerate(zip(DoG_imgs_in_octave, DoG_imgs_in_octave[1:], DoG_imgs_in_octave[2:])):
+            for posX in range(img_border_width,first_img.shape[0] - img_border_width):
+                for posY  in range(img_border_width,first_img.shape[1] - img_border_width):
+                    # Check if the pixel is an extremum
+                    if isPixelAnExtramum(first_img[posX-1:posX+2,posY-1:posY+2], second_img[posX-1:posX+2,posY-1:posY+2], third_img[posX-1:posX+2,posY-1:posY+2], threshold):
+                        loclalization_result = localizeExtremum(posX,posY,img_index+1,octave_index,nb_intervals,DoG_imgs_in_octave,sigma,constrast_theshold,img_border_width)
+
+                        if loclalization_result is not None:
+                            keypoint, localized_img_index = loclalization_result
+                            keypoints_with_orientations = computeKeypointsWithOrientations(keypoint, octave_index, localized_img_index, gauss_imgs[octave_index][localized_img_index])
+                        for keypoint_with_orientation in keypoints_with_orientations:
+                                keypoints.append(keypoint_with_orientation)
+    return keypoints
+
+# Find orientation of keypoints
+def computeKeypointsWithOrientations(keypoint, octave_index, img_index, gaussian_img, radius_factor=3, nb_bins=36, peak_ratio=0.8, scale_factor=1.5):
+    keypoints_with_orientations = []
+    img_shape = gaussian_img.shape
+
+    scale = scale_factor * keypoint.size / np.float32(2 ** (octave_index + 1))  
+    radius = int(round(radius_factor*scale))
+    weight_factor = -0.5 / (scale ** 2) 
+    raw_histogram = np.zeros(nb_bins)
+    smooth_histogram = np.zeros(nb_bins)    
+
+    for i in range(-radius, radius + 1):
+        region_y = int(round(keypoint.pt[1] / np.float32(2 **octave_index))) + 1 
+        if region_y > 0 and region_y < img_shape[0] - 1:    
+            for j in range(-radius, radius + 1):
+                region_x = int(round(keypoint.pt[0] / np.float32(2 ** octave_index))) + j
+                if region_x > 0 and region_x < img_shape[1] - 1:
+                    dx = gaussian_img[region_y,region_x+1] - gaussian_img[region_y,region_x-1]
+                    dy = gaussian_img[region_y-1,region_x] - gaussian_img[region_y+1,region_x]  
+                    grad_magnitude = np.sqrt(dx ** 2 + dy ** 2)
+                    grad_orientation = np.rad2deg(np.arctan2(dy, dx)) 
+                    weight = np.exp(weight_factor * (i ** 2 + j ** 2))
+                    histogram_index = int(np.round(grad_orientation * nb_bins / 360.)) 
+                    raw_histogram[histogram_index % nb_bins] += weight * grad_magnitude
+    
+    for nb in range(nb_bins):
+        smooth_histogram[nb] = (6*raw_histogram[nb] +4*(raw_histogram[nb-1] + raw_histogram[(nb+1)%nb_bins]) + raw_histogram[nb-2] + raw_histogram[(nb+2)%nb_bins])/16
+
+    orientation_max = np.max(smooth_histogram) 
+    orientation_peaks = np.where(np.logical_and(smooth_histogram > np.roll(smooth_histogram, 1), smooth_histogram > np.roll(smooth_histogram, -1)))[0]
+
+    for peak_index in orientation_peaks:
+        peak_value = smooth_histogram[peak_index]
+        if peak_value >= peak_ratio * orientation_max:
+            left_value = smooth_histogram[(peak_index - 1) % nb_bins]
+            right_value = smooth_histogram[(peak_index + 1) % nb_bins]
+            interpolated_peak_index = (peak_index + 0.5 * (left_value - right_value) / (left_value - 2 * peak_value + right_value)) % nb_bins
+            orientation = 360. - interpolated_peak_index * 360. / nb_bins
+
+            if np.abs(orientation - 360.) < 1e-7:
+                orientation = 0
+            
+            new_keypoint = cv2.KeyPoint(*keypoint.pt, keypoint.size, orientation, keypoint.response, keypoint.octave)
+            keypoints_with_orientations.append(new_keypoint)
+    
+    return keypoints_with_orientations
 
 
 '''Function to test'''
