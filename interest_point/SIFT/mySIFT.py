@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from functools import cmp_to_key
 from test_file import *
 
+''' Import image '''
 # Define directory path
 dir_path = './img/'
 
@@ -21,23 +22,35 @@ def showImage(image, window_name):
 
 # Function to display image information
 def showImageInformation(image):
-    if len(image.shape) == 3:  # Color image (3 channels)
+    '''
+    Display image dimensions and number of channels.
+    '''
+    if len(image.shape) == 3:  
         height, width, channels = image.shape
         print(f'Image dimensions: {width} x {height}, Channels: {channels}')
-    elif len(image.shape) == 2:  # Grayscale image (1 channel)
+    elif len(image.shape) == 2: 
         height, width = image.shape
         print(f'Image dimensions: {width} x {height}, Channels: 1 (Grayscale)')
     else:
         print("Unknown image format")
 
-
 def convertImageToGray(image):
+    '''
+    Convert the input image to grayscale.
+    '''
     gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     return gray_image
 
 # Image paramid and DoG
 def generateBaseImage(image, sigma, assumed_blur):
     '''
+    Generate base image from the input image by upscaling it and blurring it with a Gaussian filter
+    Args:
+        image: Input image
+        sigma: Standard deviation of the Gaussian filter
+        assumed_blur: Assumed blur of the input image
+    Returns:
+        base_image: Base image
     '''
     image = cv2.resize(image, (0, 0), fx=2, fy=2, interpolation=cv2.INTER_LINEAR)
     sigma_diff = np.sqrt(np.maximum((sigma ** 2) - ((2 * assumed_blur) ** 2), 0.01))
@@ -45,10 +58,21 @@ def generateBaseImage(image, sigma, assumed_blur):
 
 def computeNumberOfOctaves(image_shape):
     '''
+    Args: 
+        image_shape: Shape of the image
+    Returns:
+        Number of octaves that can be created from the image
     '''
     return int(np.round(np.log(min(image_shape)) / np.log(2) - 1))
 
 def generateGaussianKernels(sigma, nb_intervals):
+    '''
+    Args:   
+        sigma: Standard deviation of the Gaussian filter
+        nb_intervals: Number of intervals in each octave
+    Returns:
+        gauss_kernels: List of Gaussian kernels
+    '''
     nb_imgs_per_octave = nb_intervals + 3
     k = 2 ** (1. / nb_intervals) # Scale factor
     gauss_kernels = np.zeros(nb_imgs_per_octave)
@@ -86,6 +110,12 @@ def generateGaussianImages(image, nb_octaves, gaussian_kernels):
 
 # Function to generate DoG images
 def generateDoGImages(gaussian_images):
+    '''
+    Args:   
+        gaussian_images: List of Gaussian images
+    Returns:
+        DoG_images: List of DoG images
+    '''
     DoG_images = []
 
     for gaussian_imgs_in_octave in gaussian_images:
@@ -99,7 +129,14 @@ def generateDoGImages(gaussian_images):
 # Scale Space Extrema
 def isPixelAnExtramum(first_subImg, second_subImg, third_subImg, threshold):
     '''
-    Sub Image: 3x3
+    Args:
+        first_subImg: First sub-image
+        second_subImg: Second sub-image
+        third_subImg: Third sub-image
+        threshold: Threshold value
+    Returns:    
+        True if the center pixel is an extremum
+        False otherwise
     '''
     centre_pixel = second_subImg[1, 1]
 
@@ -122,12 +159,24 @@ def isPixelAnExtramum(first_subImg, second_subImg, third_subImg, threshold):
     return False
 
 def computeGradientAtCenterPixel(pixel_array):
+    '''
+    Args:
+        pixel_array: 3x3x3 array of pixel values
+    Returns:
+        Gradient at the center pixel    
+    '''
     dx = 0.5 * (pixel_array[1,1,2] - pixel_array[1,1,0])    
     dy = 0.5 * (pixel_array[1,2,1] - pixel_array[1,0,1])
     ds = 0.5 * (pixel_array[2,1,1] - pixel_array[0,1,1])
     return np.array([dx, dy, ds])
 
 def computeHessianAtCenterPixel(pixel_array):   
+    '''
+    Args:
+        pixel_array: 3x3x3 array of pixel values
+    Returns:
+        Hessian matrix at the center pixel
+    '''
     center_plixel = pixel_array[1,1,1]  
     
     dxx = pixel_array[1,1,2] - 2 * center_plixel + pixel_array[1,1,0]
@@ -260,8 +309,7 @@ def computeKeypointsWithOrientations(keypoint, octave_index, gaussian_img, radiu
     
     return keypoints_with_orientations
 
-# Remove double keypoints  
-
+# Remove 
 def compareKeypoints(keypoint1, keypoint2):
     if keypoint1.pt[0] != keypoint2.pt[0]:
         return keypoint1.pt[0] - keypoint2.pt[0]
@@ -294,6 +342,12 @@ def removeDuplicateKeypoints(keypoints):
 
 # Keypoint scale conversion 
 def convertKeypointstoInputImageSize(keypoints):
+    '''
+    Args:
+        keypoints: List of keypoints
+    Returns:
+        converted_keypoints: List of keypoints with the scale converted to the input image size
+    '''
     converted_keypoints = []
     for keypoint in keypoints:
         keypoint.pt = tuple(0.5 * np.array(keypoint.pt))
@@ -303,8 +357,15 @@ def convertKeypointstoInputImageSize(keypoints):
     return converted_keypoints
 
 # Descriptor generation
-
 def unpackOctave(keypoint):
+    '''
+    Args:   
+        keypoint: Keypoint
+    Returns:
+        octave: Octave
+        layer: Layer
+        scale: Scale
+    '''
     octave = keypoint.octave & 255
     layer = (keypoint.octave >> 8) & 255
     if octave >= 128:
@@ -330,12 +391,11 @@ def generateDescriptors(keypoints, gaussian_images, window_width=4, num_bins=8, 
         col_bin_list = []
         magnitude_list = []
         orientation_bin_list = []
-        histogram_tensor = np.zeros((window_width + 2, window_width + 2, num_bins))  # first two dimensions are increased by 2 to account for border effects
+        histogram_tensor = np.zeros((window_width + 2, window_width + 2, num_bins)) 
 
-        # Descriptor window size (described by half_width) follows OpenCV convention
         hist_width = scale_multiplier * 0.5 * scale * keypoint.size
-        half_width = int(np.round(hist_width * np.sqrt(2) * (window_width + 1) * 0.5))  # sqrt(2) corresponds to diagonal length of a pixel
-        half_width = int(min(half_width, np.sqrt(num_rows ** 2 + num_cols ** 2)))  # ensure half_width lies within image
+        half_width = int(np.round(hist_width * np.sqrt(2) * (window_width + 1) * 0.5))
+        half_width = int(min(half_width, np.sqrt(num_rows ** 2 + num_cols ** 2)))  
 
         for row in range(-half_width, half_width + 1):
             for col in range(-half_width, half_width + 1):
@@ -390,11 +450,9 @@ def generateDescriptors(keypoints, gaussian_images, window_width=4, num_bins=8, 
             histogram_tensor[row_bin_floor + 2, col_bin_floor + 2, (orientation_bin_floor + 1) % num_bins] += c111
 
         descriptor_vector = histogram_tensor[1:-1, 1:-1, :].flatten()  # Remove histogram borders
-        # Threshold and normalize descriptor_vector
         threshold = np.linalg.norm(descriptor_vector) * descriptor_max_value
         descriptor_vector[descriptor_vector > threshold] = threshold
         descriptor_vector /= max(np.linalg.norm(descriptor_vector), 1e-7)
-        # Multiply by 512, round, and saturate between 0 and 255 to convert from float32 to unsigned char (OpenCV convention)
         descriptor_vector = np.round(512 * descriptor_vector)
         descriptor_vector[descriptor_vector < 0] = 0
         descriptor_vector[descriptor_vector > 255] = 255
@@ -404,6 +462,17 @@ def generateDescriptors(keypoints, gaussian_images, window_width=4, num_bins=8, 
 
 
 def computeKeypointsAndDescriptors(image, sigma=1.6, num_intervals=3, assumed_blur=0.5, image_border_width=5):
+    '''
+    Args: 
+        image: Input image
+        sigma: Standard deviation of the Gaussian filter
+        num_intervals: Number of intervals in each octave
+        assumed_blur: Assumed blur of the input image
+        image_border_width: Width of the border in which to ignore keypoints
+    Returns:
+        keypoints: List of keypoints
+        descriptors: List of descriptors
+    '''
     image = image.astype('float32')
     base_image = generateBaseImage(image, sigma, assumed_blur)
     nb_octaves = computeNumberOfOctaves(base_image.shape)
@@ -418,7 +487,6 @@ def computeKeypointsAndDescriptors(image, sigma=1.6, num_intervals=3, assumed_bl
     return keypoints, descriptors
 
 '''Function to test'''
-
 def testBaseImageGeneration(image, sigma, assumed_blur):
     print("Testing Base Image Generation...")
     base_image = generateBaseImage(image, sigma, assumed_blur)
@@ -433,8 +501,6 @@ def testGaussianKernels(sigma, nb_intervals):
 def testGaussianImages(image, nb_octaves, gaussian_kernels):
     print("Testing Gaussian Images Generation...")
     gaussian_images = generateGaussianImages(image, nb_octaves, gaussian_kernels)
-
-    # Display all images using matplotlib
     showImagesMatplotlib(gaussian_images, title="Gaussian Images in Octaves")
 
 def testDoGImages(gaussian_images):
@@ -446,11 +512,6 @@ def testDoGImages(gaussian_images):
             showImage(dog, f"DoG - Octave {octave_idx + 1} - Image {dog_idx + 1}")
 
 def showImagesMatplotlib(images, title="Octave Images"):
-    """
-    Display images using matplotlib in a grid format.
-    images: List of images (each list of images corresponds to one octave).
-    title: Title for the plot.
-    """
     num_octaves = len(images)
     
     fig, axes = plt.subplots(num_octaves, len(images[0]), figsize=(12, 12))
