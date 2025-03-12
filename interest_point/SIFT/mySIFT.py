@@ -2,7 +2,6 @@ import numpy as np
 import cv2
 import matplotlib.pyplot as plt
 from functools import cmp_to_key
-from test_file import *
 
 ''' Import image '''
 # Define directory path
