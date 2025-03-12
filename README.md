@@ -28,7 +28,7 @@ In this project, I learned how to build this method from scratch. It will includ
 
 Although the calculation time is longer than openCV library, the result is still acceptable.
 
-## Images
+## Results
 
 1. **SIFT Detected Keypoints**:  
    Image showing keypoints detected using the SIFT algorithm.
