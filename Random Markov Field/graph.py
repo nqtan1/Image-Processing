@@ -14,7 +14,7 @@ class Node:
         self.arcs_in:List[Arc] = []
         self.arcs_out:List[Arc] = []
         self.reached = False
-        self.aug_path = None
+        self.aug_path:List[Arc] = None
 '''
 Source and Sink are 2 special nodes
 Source is the first node
@@ -118,69 +118,98 @@ class GraphFlow:
             for arc in node.arcs_in:
                 print(f"In:  {self.node_name(arc.start_node)} -> ... : {arc.flow} / {arc.capacity}")
         
-def draw_graph(graph: GraphFlow):
-    plt.figure(figsize=(12, 6))
+    def draw(self):
+        plt.figure(figsize=(12, 6))
 
-    num_nodes = graph.get_nb_nodes()
-    positions = {}
+        num_nodes = self.get_nb_nodes()
+        positions = {}
 
-    positions[0] = (0.05, 0.5)  # Source node
-    positions[1] = (0.9, 0.5)  # Sink node
+        positions[0] = (0.05, 0.5)
+        positions[1] = (0.9, 0.5)
 
-    grid_size = int(np.ceil(np.sqrt(num_nodes)))
-    x_step = 0.8 / grid_size
-    y_step = 0.8 / grid_size
+        grid_size = int(np.ceil(np.sqrt(num_nodes)))
+        x_step = 0.8 / grid_size
+        y_step = 0.8 / grid_size
 
-    for i in range(num_nodes):
-        row = i // grid_size
-        col = i % grid_size
-        positions[i + 2] = (0.2 + col * x_step, 0.1 + row * y_step)
+        for i in range(num_nodes):
+            row = i // grid_size
+            col = i % grid_size
+            positions[i + 2] = (0.2 + col * x_step, 0.1 + row * y_step)
 
-    for node_idx, (x, y) in positions.items():
-        color = 'lightgreen' if node_idx == 0 else 'lightcoral' if node_idx == 1 else 'skyblue'
-        plt.scatter(x, y, s=1000, color=color, edgecolors='black', zorder=3)
-        plt.text(x, y, graph.node_name(graph.nodes[node_idx]), fontsize=10,
-                 ha='center', va='center', zorder=4)
+        for node_idx, (x, y) in positions.items():
+            color = 'lightgreen' if node_idx == 0 else 'lightcoral' if node_idx == 1 else 'skyblue'
+            plt.scatter(x, y, s=1000, color=color, edgecolors='black', zorder=3)
+            plt.text(x, y, self.node_name(self.nodes[node_idx]), fontsize=8,
+                     ha='center', va='center', zorder=4)
 
-    for arc in graph.arcs:
-        start_x, start_y = positions[graph.nodes.index(arc.start_node)]
-        end_x, end_y = positions[graph.nodes.index(arc.end_node)]
+        for arc in self.arcs:
+            start_x, start_y = positions[self.nodes.index(arc.start_node)]
+            end_x, end_y = positions[self.nodes.index(arc.end_node)]
 
-        if abs(start_x - end_x) > 0.1 or abs(start_y - end_y) > 0.1:
-            control_x = (start_x + end_x) / 2
-            control_y = (start_y + end_y) / 2 + 0.1
-            t = np.linspace(0, 1, 100)
-            curve_x = (1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t ** 2 * end_x
-            curve_y = (1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t ** 2 * end_y
-            plt.plot(curve_x, curve_y, color='gray', alpha=0.7)
+            if abs(start_x - end_x) > 0.1 or abs(start_y - end_y) > 0.1:
+                control_x = (start_x + end_x) / 2
+                control_y = (start_y + end_y) / 2 + 0.1
+                t = np.linspace(0, 1, 100)
+                curve_x = (1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t ** 2 * end_x
+                curve_y = (1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t ** 2 * end_y
+                plt.plot(curve_x, curve_y, color='gray', alpha=0.7)
 
-            arrow_t = 0.7  
-            arrow_x = (1 - arrow_t) ** 2 * start_x + 2 * (1 - arrow_t) * arrow_t * control_x + arrow_t ** 2 * end_x
-            arrow_y = (1 - arrow_t) ** 2 * start_y + 2 * (1 - arrow_t) * arrow_t * control_y + arrow_t ** 2 * end_y
-            dx = 2 * (1 - arrow_t) * (control_x - start_x) + 2 * arrow_t * (end_x - control_x)
-            dy = 2 * (1 - arrow_t) * (control_y - start_y) + 2 * arrow_t * (end_y - control_y)
-            plt.arrow(arrow_x, arrow_y, dx * 0.01, dy * 0.01, head_width=0.02, head_length=0.03, fc='gray', ec='gray')
+                arrow_t = 0.7
+                arrow_x = (1 - arrow_t) ** 2 * start_x + 2 * (1 - arrow_t) * arrow_t * control_x + arrow_t ** 2 * end_x
+                arrow_y = (1 - arrow_t) ** 2 * start_y + 2 * (1 - arrow_t) * arrow_t * control_y + arrow_t ** 2 * end_y
+                dx = 2 * (1 - arrow_t) * (control_x - start_x) + 2 * arrow_t * (end_x - control_x)
+                dy = 2 * (1 - arrow_t) * (control_y - start_y) + 2 * arrow_t * (end_y - control_y)
+                plt.arrow(arrow_x, arrow_y, dx * 0.01, dy * 0.01, head_width=0.02, head_length=0.03, fc='gray', ec='gray')
 
-            label_t = 0.5  
-            label_x = (1 - label_t) ** 2 * start_x + 2 * (1 - label_t) * label_t * control_x + label_t ** 2 * end_x
-            label_y = (1 - label_t) ** 2 * start_y + 2 * (1 - label_t) * label_t * control_y + label_t ** 2 * end_y
-            plt.text(label_x, label_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
-                     ha='center', va='center', backgroundcolor='white')
-        else:
-            plt.arrow(start_x, start_y, (end_x - start_x) * 0.8, (end_y - start_y) * 0.8,
-                      head_width=0.005, head_length=0.005, fc='gray', ec='gray', alpha=0.7, length_includes_head=True)
+                label_t = 0.5
+                label_x = (1 - label_t) ** 2 * start_x + 2 * (1 - label_t) * label_t * control_x + label_t ** 2 * end_x
+                label_y = (1 - label_t) ** 2 * start_y + 2 * (1 - label_t) * label_t * control_y + label_t ** 2 * end_y
+                plt.text(label_x, label_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
+                         ha='center', va='center', backgroundcolor='white')
+            else:
+                plt.arrow(start_x, start_y, (end_x - start_x) * 0.8, (end_y - start_y) * 0.8,
+                          head_width=0.005, head_length=0.005, fc='gray', ec='gray', alpha=0.7, length_includes_head=True)
 
-            mid_x, mid_y = (start_x + end_x) / 2, (start_y + end_y) / 2
-            plt.text(mid_x, mid_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
-                     ha='center', va='center', backgroundcolor='white')
+                mid_x, mid_y = (start_x + end_x) / 2, (start_y + end_y) / 2
+                plt.text(mid_x, mid_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
+                         ha='center', va='center', backgroundcolor='white')
 
-    plt.axis('off')
-    plt.title("Graph Visualization", fontsize=16)
-    plt.show()
+        plt.axis('off')
+        plt.title("Graph Visualization", fontsize=16)
+        plt.show()
+    
+    def augmenting_path(self):
+        '''
+        Find an augmenting path from source to sink by using BFS
+        '''
+
+        queue = [self.nodes[0]] # Start from source
+        current = 0 
+
+        for node in self.nodes:
+            node.reached = False 
+            node.aug_path = None
+
+        self.nodes[0].reached = True
+        
+        while current < len(queue) and not self.nodes[1].reached:
+            current_node = queue[current]
+
+            for arc in current_node.arcs_out:
+                if arc.flow < arc.capacity and not arc.end_node.reached:
+                    queue.append(arc.end_node)
+                    arc.end_node.reached = True
+                    arc.end_node.aug_path = arc
+            current += 1
+    
+    
+
+
+
 
 def main():
     gf = GraphFlow()
-    gf.set_nb_nodes(10)
+    gf.set_nb_nodes(4)
 
     node0 = gf.nodes[2]
     node1 = gf.nodes[3]
@@ -199,7 +228,7 @@ def main():
     
     gf.display_graph()
 
-    draw_graph(gf)
+    gf.draw()
 
 if __name__ == "__main__":  
     main()
