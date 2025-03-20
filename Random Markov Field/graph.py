@@ -202,33 +202,51 @@ class GraphFlow:
                     arc.end_node.aug_path = arc
             current += 1
     
-    
+    def ford_fulkerson(self):
+        ''''''
+        while True:
+            self.augmenting_path()
+            if not self.nodes[1].reached:
+                break
+                
+            min_residual_capacity = float('inf')
+            backtrace_node = self.nodes[1]
 
+            while backtrace_node.aug_path:
+                p_arc = backtrace_node.aug_path
+                min_residual_capacity = min(min_residual_capacity, p_arc.capacity - p_arc.flow)
+                backtrace_node = p_arc.start_node
 
+            backtrace_node = self.nodes[1]
+            while backtrace_node.aug_path:
+                p_arc = backtrace_node.aug_path
+                p_arc.flow += min_residual_capacity
+                backtrace_node = p_arc.start_node
+            
+            for node in self.nodes:
+                node.reached = False
 
 
 def main():
-    gf = GraphFlow()
-    gf.set_nb_nodes(4)
+    graph = GraphFlow()
+    graph.set_nb_nodes(6)
 
-    node0 = gf.nodes[2]
-    node1 = gf.nodes[3]
-    node2 = gf.nodes[4]
+    graph.connect_nodes(0, 1, 10)
+    graph.connect_nodes(0, 2, 5)
+    graph.connect_nodes(1, 3, 15)
+    graph.connect_nodes(2, 3, 10)
+    graph.connect_nodes(3, 4, 10)
+    graph.connect_nodes(4, 1, 5)
+    graph.connect_source_to_node(0, 10)
+    graph.connect_node_to_sink(4, 10)
 
-    gf.connect_nodes(0, 1, 2)
-    gf.connect_nodes(0, 2, 3)   
-    gf.connect_nodes(1, 2, 2)
-    gf.connect_node_to_sink(2, 4)
-    gf.connect_node_to_sink(1, 3)
-    gf.connect_source_to_node(0, 5)
-    gf.connect_source_to_node(2,3)
+    print("Before running Ford-Fulkerson:")
+    graph.draw()
 
-    print(gf.get_nb_nodes())
-    print(gf.get_nb_arcs())
-    
-    gf.display_graph()
+    graph.ford_fulkerson()
 
-    gf.draw()
+    print("\nAfter running Ford-Fulkerson:")
+    graph.draw()
 
 if __name__ == "__main__":  
     main()
