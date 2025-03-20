@@ -1,0 +1,205 @@
+from typing import List
+import matplotlib.pyplot as plt
+import numpy as np
+
+class Arc: 
+    def __init__(self,start_node: 'Node' = None, end_node: 'Node' = None, capacity: float = 0.0):
+        self.start_node = start_node
+        self.end_node = end_node
+        self.capacity = capacity
+        self.flow = 0.0
+
+class Node:
+    def __init__(self):
+        self.arcs_in:List[Arc] = []
+        self.arcs_out:List[Arc] = []
+        self.reached = False
+        self.aug_path = None
+'''
+Source and Sink are 2 special nodes
+Source is the first node
+Sink is the last node in the list of nodes
+'''
+class GraphFlow:
+    def __init__(self):
+        self.nodes:List[Node] = []
+        self.arcs:List[Arc] = []  
+    
+    def set_nb_nodes(self, nb_nodes: int):
+        '''
+        Add 2 nodes for source and sink
+        '''
+        self.nodes = [Node() for _ in range(nb_nodes + 2)]
+        self.arcs.clear()  
+    
+    def get_nb_nodes(self):
+        return len(self.nodes) - 2
+    
+    def get_nb_arcs(self):
+        return len(self.arcs)
+    
+    def reset_flow(self):
+        for arc in self.arcs:
+            arc.flow = 0.0
+
+    def connect_nodes_private(self, node1: 'Node' = None, node2: 'Node' = None, cap: float = 0): 
+        '''
+        Connect 2 nodes with a capacity
+        '''
+        p_arc_out = None 
+        p_arc_in = None
+
+        # Consider all arcs out from node1
+        for arc in node1.arcs_out:
+            if arc.end_node == node2:
+                p_arc_out = arc
+        
+        # Consider all arcs in to node2
+        for arc in node2.arcs_in:
+            if arc.start_node == node1:
+                p_arc_in = arc
+        
+        # Update or create new arc
+        if p_arc_out == p_arc_in: 
+            if p_arc_out:
+                p_arc_out.capacity = cap
+            else:
+                new_arc = Arc(node1, node2, cap)
+                self.arcs.append(new_arc)
+                node1.arcs_out.append(new_arc)
+                node2.arcs_in.append(new_arc)
+
+    def connect_nodes(self, idx_node1: int, idx_node2: int, cap: float):
+        '''
+        Connect 2 nodes with a capacity
+        '''
+        node1 = self.nodes[idx_node1 + 2]
+        node2 = self.nodes[idx_node2 + 2]
+        self.connect_nodes_private(node1, node2, cap)   
+
+    def connect_source_to_node(self, idx_node: int, cap: float):
+        '''
+        Connect source to a node with a capacity
+        '''
+        node1 = self.nodes[0]
+        node2 = self.nodes[idx_node + 2]
+        self.connect_nodes_private(node1, node2, cap)
+
+    def connect_node_to_sink(self, idx_node: int, cap: float):
+        '''
+        Connect a node to sink with a capacity
+        '''
+        node1 = self.nodes[idx_node + 2]
+        node2 = self.nodes[1]
+        self.connect_nodes_private(node1, node2, cap)
+
+    def node_name(self,node: 'Node'):
+        '''
+        Get name of node
+        '''
+        if node == self.nodes[0]:
+            return "Source"
+        elif node == self.nodes[1]:
+            return "Sink"
+        else:
+            return f"Node {self.nodes.index(node) - 2 }"
+
+    def display_graph(self):
+        '''
+        Display information of graph under format:
+        Node <node_name>:
+        Out: ->  <node_name>: <flow> / <capacity>
+        In:  <node_name> -> ... : <flow> / <capacity>   
+        '''
+        for node in self.nodes:
+            print(f"{self.node_name(node)}:")
+            for arc in node.arcs_out:
+                print(f"Out: ->  {self.node_name(arc.end_node)}: {arc.flow} / {arc.capacity}")
+            for arc in node.arcs_in:
+                print(f"In:  {self.node_name(arc.start_node)} -> ... : {arc.flow} / {arc.capacity}")
+        
+def draw_graph(graph: GraphFlow):
+    plt.figure(figsize=(12, 6))
+
+    num_nodes = graph.get_nb_nodes()
+    positions = {}
+
+    positions[0] = (0.05, 0.5)  # Source node
+    positions[1] = (0.9, 0.5)  # Sink node
+
+    grid_size = int(np.ceil(np.sqrt(num_nodes)))
+    x_step = 0.8 / grid_size
+    y_step = 0.8 / grid_size
+
+    for i in range(num_nodes):
+        row = i // grid_size
+        col = i % grid_size
+        positions[i + 2] = (0.2 + col * x_step, 0.1 + row * y_step)
+
+    for node_idx, (x, y) in positions.items():
+        color = 'lightgreen' if node_idx == 0 else 'lightcoral' if node_idx == 1 else 'skyblue'
+        plt.scatter(x, y, s=1000, color=color, edgecolors='black', zorder=3)
+        plt.text(x, y, graph.node_name(graph.nodes[node_idx]), fontsize=10,
+                 ha='center', va='center', zorder=4)
+
+    for arc in graph.arcs:
+        start_x, start_y = positions[graph.nodes.index(arc.start_node)]
+        end_x, end_y = positions[graph.nodes.index(arc.end_node)]
+
+        if abs(start_x - end_x) > 0.1 or abs(start_y - end_y) > 0.1:
+            control_x = (start_x + end_x) / 2
+            control_y = (start_y + end_y) / 2 + 0.1
+            t = np.linspace(0, 1, 100)
+            curve_x = (1 - t) ** 2 * start_x + 2 * (1 - t) * t * control_x + t ** 2 * end_x
+            curve_y = (1 - t) ** 2 * start_y + 2 * (1 - t) * t * control_y + t ** 2 * end_y
+            plt.plot(curve_x, curve_y, color='gray', alpha=0.7)
+
+            arrow_t = 0.7  
+            arrow_x = (1 - arrow_t) ** 2 * start_x + 2 * (1 - arrow_t) * arrow_t * control_x + arrow_t ** 2 * end_x
+            arrow_y = (1 - arrow_t) ** 2 * start_y + 2 * (1 - arrow_t) * arrow_t * control_y + arrow_t ** 2 * end_y
+            dx = 2 * (1 - arrow_t) * (control_x - start_x) + 2 * arrow_t * (end_x - control_x)
+            dy = 2 * (1 - arrow_t) * (control_y - start_y) + 2 * arrow_t * (end_y - control_y)
+            plt.arrow(arrow_x, arrow_y, dx * 0.01, dy * 0.01, head_width=0.02, head_length=0.03, fc='gray', ec='gray')
+
+            label_t = 0.5  
+            label_x = (1 - label_t) ** 2 * start_x + 2 * (1 - label_t) * label_t * control_x + label_t ** 2 * end_x
+            label_y = (1 - label_t) ** 2 * start_y + 2 * (1 - label_t) * label_t * control_y + label_t ** 2 * end_y
+            plt.text(label_x, label_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
+                     ha='center', va='center', backgroundcolor='white')
+        else:
+            plt.arrow(start_x, start_y, (end_x - start_x) * 0.8, (end_y - start_y) * 0.8,
+                      head_width=0.005, head_length=0.005, fc='gray', ec='gray', alpha=0.7, length_includes_head=True)
+
+            mid_x, mid_y = (start_x + end_x) / 2, (start_y + end_y) / 2
+            plt.text(mid_x, mid_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
+                     ha='center', va='center', backgroundcolor='white')
+
+    plt.axis('off')
+    plt.title("Graph Visualization", fontsize=16)
+    plt.show()
+
+def main():
+    gf = GraphFlow()
+    gf.set_nb_nodes(10)
+
+    node0 = gf.nodes[2]
+    node1 = gf.nodes[3]
+    node2 = gf.nodes[4]
+
+    gf.connect_nodes(0, 1, 2)
+    gf.connect_nodes(0, 2, 3)   
+    gf.connect_nodes(1, 2, 2)
+    gf.connect_node_to_sink(2, 4)
+    gf.connect_node_to_sink(1, 3)
+    gf.connect_source_to_node(0, 5)
+    gf.connect_source_to_node(2,3)
+
+    print(gf.get_nb_nodes())
+    print(gf.get_nb_arcs())
+    
+    gf.display_graph()
+
+    draw_graph(gf)
+
+if __name__ == "__main__":  
+    main()
