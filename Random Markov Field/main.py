@@ -50,10 +50,12 @@ def main():
                 neighbor_value = img[r, c - 1] / 255.0
                 if (value >= seuil) != (neighbor_value >= seuil):
                     graph.connect_nodes(index, neighbor_index, alpha)
-
+    
+    #graph.draw()     
     print("Running Ford-Fulkerson...")
     graph.ford_fulkerson()
     print("Finished Ford-Fulkerson")
+    #graph.draw()
 
     vect_s, _ = graph.cut_from_source()
 

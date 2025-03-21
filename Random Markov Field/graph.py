@@ -119,6 +119,9 @@ class GraphFlow:
                 print(f"In:  {self.node_name(arc.start_node)} -> ... : {arc.flow} / {arc.capacity}")
         
     def draw(self) -> None:
+        '''
+        Draw the graph with matplotlib
+        '''
         plt.figure(figsize=(12, 6))
 
         num_nodes = self.get_nb_nodes()
@@ -140,7 +143,7 @@ class GraphFlow:
             color = 'lightgreen' if node_idx == 0 else 'lightcoral' if node_idx == 1 else 'skyblue'
             plt.scatter(x, y, s=1000, color=color, edgecolors='black', zorder=3)
             plt.text(x, y, self.node_name(self.nodes[node_idx]), fontsize=8,
-                     ha='center', va='center', zorder=4)
+                    ha='center', va='center', zorder=4)
 
         for arc in self.arcs:
             start_x, start_y = positions[self.nodes.index(arc.start_node)]
@@ -165,25 +168,25 @@ class GraphFlow:
                 label_x = (1 - label_t) ** 2 * start_x + 2 * (1 - label_t) * label_t * control_x + label_t ** 2 * end_x
                 label_y = (1 - label_t) ** 2 * start_y + 2 * (1 - label_t) * label_t * control_y + label_t ** 2 * end_y
                 plt.text(label_x, label_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
-                         ha='center', va='center', backgroundcolor='white')
+                        ha='center', va='center', backgroundcolor='white')
             else:
                 plt.arrow(start_x, start_y, (end_x - start_x) * 0.8, (end_y - start_y) * 0.8,
-                          head_width=0.005, head_length=0.005, fc='gray', ec='gray', alpha=0.7, length_includes_head=True)
+                        head_width=0.005, head_length=0.005, fc='gray', ec='gray', alpha=0.7, length_includes_head=True)
 
                 mid_x, mid_y = (start_x + end_x) / 2, (start_y + end_y) / 2
                 plt.text(mid_x, mid_y, f"{arc.flow}/{arc.capacity}", fontsize=8, color='red',
-                         ha='center', va='center', backgroundcolor='white')
+                        ha='center', va='center', backgroundcolor='white')
 
         plt.axis('off')
         plt.title("Graph Visualization", fontsize=16)
         plt.show()
+
     
     def augmenting_path(self) -> None:
         '''
         Find an augmenting path from source to sink by using BFS
         '''
-
-        queue = [self.nodes[0]] # Start from source
+        queue = [self.nodes[0]]
         current = 0 
 
         for node in self.nodes:
@@ -203,7 +206,9 @@ class GraphFlow:
             current += 1
     
     def ford_fulkerson(self):
-        ''''''
+        '''
+        Implement Ford-Fulkerson algorithm to find the maximum flow
+        '''
         while True:
             self.augmenting_path()
             if not self.nodes[1].reached:
@@ -227,6 +232,9 @@ class GraphFlow:
                 node.reached = False
 
     def cut_from_source(self):
+        '''
+        Find the set of nodes reachable from source
+        '''
         queue = [self.nodes[0]]
         current = 0 
 
@@ -234,15 +242,15 @@ class GraphFlow:
             node.reached = False
         
         self.nodes[0].reached = True
-        #print(len(queue))
-        print("\nStarting BFS from Source:")
+
+        #print("\nStarting BFS from Source:")
         while current < len(queue):
             current_node = queue[current]
-            print(f"Visiting node: {self.node_name(current_node)}")
+            #print(f"Visiting node: {self.node_name(current_node)}")
             for arc in current_node.arcs_out:
                 if arc.capacity - arc.flow > 0 and not arc.end_node.reached:
-                    print(f"  Adding node {self.node_name(arc.end_node)} to queue "
-                        f"(residual capacity = {arc.capacity - arc.flow})")
+                    #print(f"  Adding node {self.node_name(arc.end_node)} to queue "
+                    #    f"(residual capacity = {arc.capacity - arc.flow})")
                     queue.append(arc.end_node)
                     arc.end_node.reached = True
             current += 1
@@ -259,6 +267,9 @@ class GraphFlow:
         return vect_S, vect_T
 
     def verify_min_cut(self, vect_S) -> float:
+        '''
+        Find the minimum cut capacity
+        '''
         min_cut_capacity = 0
         for node_idx in vect_S:
             node = self.nodes[node_idx + 2]
