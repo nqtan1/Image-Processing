@@ -3,7 +3,8 @@ import numpy as np
 from graph import GraphFlow
 
 def main():
-    img = cv2.imread("img/lego_gray.jpg", cv2.IMREAD_GRAYSCALE)
+    #img = cv2.imread("img/lego_gray.jpg", cv2.IMREAD_GRAYSCALE)
+    img = cv2.imread("img/brain_ct.jpg", cv2.IMREAD_GRAYSCALE)
     if img is None:
         print("Failed to open image")
         return
